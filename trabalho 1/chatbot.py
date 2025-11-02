@@ -3,6 +3,8 @@ import json
 import re
 import datetime
 from image_processing import analyze_image
+from carregararctic import text_to_sql
+import sqlite3
 
 # URL do servidor MCP (ajuste conforme necessário)
 SERVER_URL = "http://localhost:8000"
@@ -186,33 +188,26 @@ def chatbot():
         elif user_input.startswith('consultar '):
             prompt = user_input[9:]
             try:
-                query_info = parse_query_prompt(prompt)
-                params = []
-                if query_info["brand"]:
-                    params.append(f"brand={query_info['brand']}")
-                if query_info["start_date"]:
-                    params.append(f"start_date={query_info['start_date']}")
-                if query_info["end_date"]:
-                    params.append(f"end_date={query_info['end_date']}")
-                if query_info["min_rating"] is not None:
-                    params.append(f"min_rating={query_info['min_rating']}")
-                params.append(f"limit={query_info['limit']}")
-                query_string = "&".join(params)
-                response = requests.get(f"{SERVER_URL}/get_cars_filtered?{query_string}")
-                if response.status_code == 200:
-                    cars = response.json()
-                    if cars:
-                        print("Carros encontrados:")
-                        for car in cars:
-                            print(f"  - Marca: {car['brand']}, Modelo: {car['model']}, Preço: R${car['price']}, Nota: {car['rating']}, Lançamento: {car['launch_date']}")
-                    else:
-                        print("Nenhum carro encontrado com os filtros informados.")
+                # Gera SQL a partir do prompt em linguagem natural
+                sql_query = text_to_sql(prompt)
+                print(f"\n🧠 SQL gerado pelo modelo:\n{sql_query}\n")
+
+                # Executa a query diretamente no banco local
+                conn = sqlite3.connect("cars.db")
+                cursor = conn.cursor()
+                cursor.execute(sql_query)
+                rows = cursor.fetchall()
+                conn.close()
+
+                if rows:
+                    print("📊 Resultados da consulta:")
+                    for row in rows:
+                        print(row)
                 else:
-                    print(f"Erro ao consultar carros: {response.text}")
+                    print("Nenhum resultado encontrado.")
+
             except Exception as e:
                 print(f"Erro ao processar comando de consultar: {e}")
-        else:
-            print("Comando não reconhecido. Tente novamente.")
 
 if __name__ == "__main__":
     chatbot()
